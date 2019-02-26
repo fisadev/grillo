@@ -222,7 +222,10 @@ class GrilloCli:
         Receive whatever data is being sent from the source computer.
         """
         grillo = Grillo(receive=True)
-        grillo.listen(forever)
+        try:
+            grillo.listen(forever)
+        except KeyboardInterrupt:
+            print("Grillo was killed. Poor little grillo.")
 
 
 def main():

@@ -4,11 +4,11 @@ A small tool to easily send data (files, clipboard) between computers with 0 con
 
 # Installation
 
-On Ubuntu, install it with:
+On Ubuntu, install it by cloning the repo and then running this inside the repo folder (yes, ugly, still hasn't been published because it's under development):
 
 
     sudo apt install portaudio19-dev libffi-dev libsndfile1
-    pip3 install -e .
+    pip3 install -e . --user
 
 
 # Usage

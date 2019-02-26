@@ -118,11 +118,11 @@ class Grillo:
 
         self.send_message(MessageKind.FILE, payload)
 
-    def listen(self):
+    def listen(self, forever=False):
         """
         Receive whatever data is being sent from the source computer.
         """
-        while self.listening:
+        while self.listening or forever:
             time.sleep(1)
 
     def receive_message(self, message):
@@ -217,12 +217,12 @@ class GrilloCli:
         except MessageTooLongException:
             print("File is too big to be sent.")
 
-    def listen(self):
+    def listen(self, forever=False):
         """
         Receive whatever data is being sent from the source computer.
         """
         grillo = Grillo(receive=True)
-        grillo.listen()
+        grillo.listen(forever)
 
 
 def main():

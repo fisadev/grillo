@@ -27,5 +27,6 @@ setup(
         "pyperclip",
         "fire",
         "termcolor",
+        "trailets",  # dependency of chirp, but missing in their requirements
     ],
 )

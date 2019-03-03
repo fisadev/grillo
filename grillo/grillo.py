@@ -5,7 +5,7 @@ from pathlib import Path
 import fire
 import pyperclip
 
-from modem import Modem, MessageTooLongException
+from grillo.modem import Modem, MessageTooLongException
 
 
 class MessageKind(Enum):

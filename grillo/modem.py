@@ -49,10 +49,16 @@ class MultipartMessageReceiver(CallbackSet):
     A thing that can receive a multi part message, and stores it as an instance variable. It can
     also call a callback when the message is received.
     """
-    def __init__(self, callback=None):
+    def __init__(self, callback=None, reset_on_message=False):
         self.callback = callback
+        self.reset_on_message = reset_on_message
+
         self.reset_status()
 
+    def reset_status(self):
+        """
+        Reset the receiving status.
+        """
         self.message = None
         self.total_parts = None
         self.parts = []
@@ -76,6 +82,9 @@ class MultipartMessageReceiver(CallbackSet):
             if self.finished():
                 self.message = self.combine()
                 self.callback(self.message)
+
+                if self.reset_on_message:
+                    self.reset_status()
 
     def finished(self):
         """
@@ -200,7 +209,7 @@ class Modem:
         """
         Start listening for messages, calling a callback whenever a packet is received.
         """
-        receiver = MultipartMessageReceiver(callback)
+        receiver = MultipartMessageReceiver(callback, reset_on_message=True)
         self.chirp.set_callbacks(receiver)
         self.chirp.start(receive=True, send=False)
 

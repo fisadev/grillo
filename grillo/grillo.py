@@ -32,7 +32,7 @@ class Grillo:
         """
         Send text via audio.
         """
-        self._send_message(MessageKind.TEXT, text.encode("utf-8"))
+        self._send_message(MessageKind.TEXT, str(text).encode("utf-8"))
 
     def send_clipboard(self):
         """

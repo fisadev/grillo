@@ -2,6 +2,7 @@
 An audio modem, able to encode and decode data from/to audio. Internally uses chirp for
 the modulation/demodulation, and unireedsolomon for error correction.
 """
+import time
 
 from chirpsdk import ChirpConnect, CallbackSet
 from grillo import config
@@ -113,8 +114,12 @@ class Modem:
 
         return chirp
 
-    def listen(self, on_received_callback):
+    def listen(self, on_received_callback, kill_after_seconds=None):
         modem = self._build_chirp_modem_for_listening(on_received_callback)
+
+        if kill_after_seconds:
+            time.sleep(kill_after_seconds)
+            modem.stop()
 
     def _build_chirp_modem_for_listening(self, on_received_callback):
         chirp = self._build_chirp_modem()

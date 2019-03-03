@@ -1,13 +1,11 @@
-import pickle
 import time
 from enum import Enum
 from pathlib import Path
 
 import fire
 import pyperclip
-from chirpsdk import ChirpConnect, CallbackSet
 
-from grillo import config
+from modem import Modem, MessageTooLongException
 
 
 class MessageKind(Enum):
@@ -19,32 +17,6 @@ class MessageKind(Enum):
     FILE = "f"
 
 
-class MessageTooLongException(Exception):
-    """
-    Error raised when a message is too long to be sent.
-    """
-    pass
-
-
-class ChirpCallbacks(CallbackSet):
-    """
-    Callbacks container that chirp expects to get.
-    """
-    def __init__(self, grillo):
-        self.grillo = grillo
-
-    def on_received(self, payload, channel):
-        """
-        Executed when chirp receives data.
-        """
-        if payload is not None:
-            identifier = payload.decode('utf-8')
-
-            self.grillo.receive_message(payload)
-        else:
-            print('Decode failed')
-
-
 class Grillo:
     """
     Tool to send data to a different computer or receive it, just using audio and mic.
@@ -52,53 +24,21 @@ class Grillo:
     HEADER_SEPARATOR = b"|"
     FILE_NAME_SEPARATOR = b"<NAME>"
 
-    def __init__(self, send=False, receive=False):
-        """
-        Return an instance of a chirp thingymagic ready to be used.
-        """
-        self.chirp = ChirpConnect(
-            key=config.CHIRP_APP_KEY,
-            secret=config.CHIRP_APP_SECRET,
-            config=config.CHIRP_APP_CONFIG,
-        )
-
-        self.chirp.set_callbacks(ChirpCallbacks(self))
-        self.listening = receive
-        self.chirp.start(send=send, receive=receive)
-
-    def send_message(self, kind, payload):
-        """
-        Build a serialized message to send over audio.
-        """
-        message = kind.value.encode("utf-8") + Grillo.HEADER_SEPARATOR + payload
-
-        if len(message) > 32:
-            raise MessageTooLongException()
-
-        self.chirp.send(message, blocking=True)
-
-    def read_message(self, message):
-        """
-        Read a serialized message received over audio.
-        """
-        parts = message.split(Grillo.HEADER_SEPARATOR)
-
-        kind = MessageKind(parts[0].decode("utf-8"))
-        payload = Grillo.HEADER_SEPARATOR.join(parts[1:])
-
-        return kind, payload
+    def __init__(self):
+        self.modem = Modem()
+        self.listening = False
 
     def send_text(self, text):
         """
         Send text via audio.
         """
-        self.send_message(MessageKind.TEXT, text.encode("utf-8"))
+        self._send_message(MessageKind.TEXT, text.encode("utf-8"))
 
     def send_clipboard(self):
         """
         Send clipboard contents via audio.
         """
-        self.send_message(MessageKind.CLIPBOARD, pyperclip.paste().encode("utf-8"))
+        self._send_message(MessageKind.CLIPBOARD, pyperclip.paste().encode("utf-8"))
 
     def send_file(self, file_path):
         """
@@ -116,30 +56,52 @@ class Grillo:
             file_contents
         )
 
-        self.send_message(MessageKind.FILE, payload)
+        self._send_message(MessageKind.FILE, payload)
+
+    def _send_message(self, kind, payload):
+        """
+        Build a serialized message to send over audio.
+        """
+        message = kind.value.encode("utf-8") + Grillo.HEADER_SEPARATOR + payload
+
+        self.modem.send(message, blocking=True)
 
     def listen(self, forever=False):
         """
         Receive whatever data is being sent from the source computer.
         """
+        self.listening = True
+        self.modem.listen(self._receive_message)
+
         while self.listening or forever:
             time.sleep(1)
 
-    def receive_message(self, message):
+    def _receive_message(self, message):
         """
         Process an incoming message.
         """
-        kind, payload = self.read_message(message)
+        kind, payload = self._parse_message(message)
         if kind == MessageKind.TEXT:
-            self.receive_text(payload)
+            self._receive_text(payload)
         elif kind == MessageKind.CLIPBOARD:
-            self.receive_clipboard(payload)
+            self._receive_clipboard(payload)
         elif kind == MessageKind.FILE:
-            self.receive_file(payload)
+            self._receive_file(payload)
 
         self.listening = False
 
-    def receive_text(self, payload):
+    def _parse_message(self, message):
+        """
+        Read a serialized message received over audio.
+        """
+        parts = message.split(Grillo.HEADER_SEPARATOR)
+
+        kind = MessageKind(parts[0].decode("utf-8"))
+        payload = Grillo.HEADER_SEPARATOR.join(parts[1:])
+
+        return kind, payload
+
+    def _receive_text(self, payload):
         """
         Receive text via audio.
         """
@@ -147,7 +109,7 @@ class Grillo:
         print("Received text:")
         print(text)
 
-    def receive_clipboard(self, payload):
+    def _receive_clipboard(self, payload):
         """
         Receive clipboard contents via audio.
         """
@@ -155,7 +117,7 @@ class Grillo:
         pyperclip.copy(clipboard_contents)
         print("Received clipboard contents, copied to your own clipboard :)")
 
-    def receive_file(self, payload):
+    def _receive_file(self, payload):
         """
         Receive file contents via audio.
         """
@@ -185,7 +147,7 @@ class GrilloCli:
         """
         Send a text.
         """
-        grillo = Grillo(send=True)
+        grillo = Grillo()
         try:
             grillo.send_text(text)
         except MessageTooLongException:
@@ -201,7 +163,7 @@ class GrilloCli:
         """
         Send the contents of the clipboard.
         """
-        grillo = Grillo(send=True)
+        grillo = Grillo()
         try:
             grillo.send_clipboard()
         except MessageTooLongException:
@@ -211,7 +173,7 @@ class GrilloCli:
         """
         Send a file.
         """
-        grillo = Grillo(send=True)
+        grillo = Grillo()
         try:
             grillo.send_file(file_path)
         except MessageTooLongException:
@@ -221,7 +183,7 @@ class GrilloCli:
         """
         Receive whatever data is being sent from the source computer.
         """
-        grillo = Grillo(receive=True)
+        grillo = Grillo()
         try:
             grillo.listen(forever)
         except KeyboardInterrupt:

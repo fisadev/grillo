@@ -7,6 +7,13 @@ from chirpsdk import ChirpConnect, CallbackSet
 from grillo import config
 
 
+class MessageTooLongException(Exception):
+    """
+    Error raised when a message is too long to be sent.
+    """
+    pass
+
+
 class ChirpCallbacks(CallbackSet):
     """
     Callbacks container that chirp expects to get.
@@ -26,6 +33,29 @@ class ChirpCallbacks(CallbackSet):
 
 
 class Modem:
+    def send(self, message, blocking=True):
+        if len(message) > 32:
+            raise MessageTooLongException()
+
+        modem = self._build_chirp_modem_for_send()
+        modem.send(message, blocking)
+
+    def _build_chirp_modem_for_send(self):
+        chirp = self._build_chirp_modem()
+        chirp.start(send=True, receive=False)
+
+        return chirp
+
+    def listen(self, on_received_callback):
+        modem = self._build_chirp_modem_for_listening(on_received_callback)
+
+    def _build_chirp_modem_for_listening(self, callback):
+        chirp = self._build_chirp_modem()
+        chirp.set_callbacks(ChirpCallbacks(callback))
+        chirp.start(receive=True, send=False)
+
+        return chirp
+
     def _build_chirp_modem(self):
         chirp = ChirpConnect(
             key=config.CHIRP_APP_KEY,
@@ -34,23 +64,3 @@ class Modem:
         )
 
         return chirp
-
-    def _build_chirp_modem_for_receive(self, callback):
-        chirp = self._build_chirp_modem()
-        chirp.set_callbacks(ChirpCallbacks(callback))
-        chirp.start(receive=True)
-
-        return chirp
-
-    def _build_chirp_modem_for_send(self):
-        chirp = self._build_chirp_modem()
-        chirp.start(send=True)
-
-        return chirp
-
-    def send(self, message, blocking=True):
-        modem = self._build_chirp_modem_for_send()
-        modem.send(message, blocking)
-
-    def listen(self, on_received_callback):
-        modem = self._build_chirp_modem_for_receive(on_received_callback)

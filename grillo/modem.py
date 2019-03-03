@@ -119,8 +119,9 @@ class Modem:
         modem = self._build_chirp_modem_for_send()
         packets_to_send = range(chain_len)
         while len(packets_to_send) > 0:
-            self._send_packets(modem, message, packets_to_send, blocking)
-            packets_to_send = self._get_packets_to_retry()
+            self._send_packets(modem, message, packets_to_send, chain_len, blocking)
+# TODO           packets_to_send = self._get_packets_to_retry()
+            packets_to_send = []
 
     def _get_packets_to_retry(self):
         packets_to_retry = []
@@ -135,8 +136,8 @@ class Modem:
         else:
             raise MessageAckIsBroken()
 
-    def _send_packets(self, modem, message, packet_list, blocking):
-        for i in range(chain_len):
+    def _send_packets(self, modem, message, packet_list, chain_len, blocking):
+        for i in packet_list:
             packet = (
                 bytes([chain_len, i])
                 + message[self.DATA_LEN * i:self.DATA_LEN * (i + 1)])

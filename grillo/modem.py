@@ -3,6 +3,7 @@ An audio modem, able to encode and decode data from/to audio. Internally uses ch
 the modulation/demodulation, and unireedsolomon for error correction.
 """
 import time
+from datetime import datetime, timedelta
 
 from chirpsdk import ChirpConnect, CallbackSet
 from grillo import config
@@ -25,18 +26,34 @@ class MessageAckIsBroken(Exception):
     pass
 
 
-class PartialMessageReceiver(CallbackSet):
+class SinglePacketReceiver(CallbackSet):
     """
-    A thing that can listen to chirp callbacks and build a message received in parts.
+    A thing that can receive a single chirp packet, and stores it as an instance variable. It can
+    also call a callback when the packet is received.
     """
-    def __init__(self, callback):
+    def __init__(self, callback=None):
+        self.callback = callback
+        self.packet = None
+
+    def on_received(self, payload, channel):
+        """
+        Executed when chirp receives data.
+        """
+        self.packet = payload
+        if self.callback is not None:
+            self.callback(payload)
+
+
+class MultipartMessageReceiver(CallbackSet):
+    """
+    A thing that can receive a multi part message, and stores it as an instance variable. It can
+    also call a callback when the message is received.
+    """
+    def __init__(self, callback=None):
         self.callback = callback
         self.reset_status()
 
-    def reset_status(self):
-        """
-        Reset reception status.
-        """
+        self.message = None
         self.total_parts = None
         self.parts = []
 
@@ -44,37 +61,20 @@ class PartialMessageReceiver(CallbackSet):
         """
         Executed when chirp receives data.
         """
-        if payload is None:
-            self.reset_status()
-            raise MessagePartsLostException("A part of the message failed to decode.")
-        else:
+        if payload is not None:
             total_parts = payload[0]
             part_number = payload[1]
             message_part = payload[2:]
 
             if self.total_parts is None:
                 # first part received!
-
-                if part_number != 0:
-                    # but we missed the real first part
-                    self.reset_status()
-                    raise MessagePartsLostException("Missed the begining of the message.")
-
                 self.total_parts = total_parts
-            else:
-                # middle or last part received
-
-                if part_number != self.parts[-1][0] + 1:
-                    # but we missed some part in between
-                    self.reset_status()
-                    raise MessagePartsLostException("Missed parts of the message.")
 
             self.parts.append((part_number, message_part))
 
             # finished receiving all the parts?
             if self.finished():
-                final_message = self.combine()
-                self.reset_status()
+                self.message = self.combine()
                 self.callback(final_message)
 
     def finished(self):
@@ -99,6 +99,9 @@ class Modem:
     """
     DATA_LEN = 30
 
+    def __init__(self):
+        self.chirp = self._build_chirp_modem()
+
     def send(self, message, blocking=True):
         chain_len = self._get_chain_len(len(message))
         if chain_len > 255:
@@ -115,6 +118,7 @@ class Modem:
         receiver = SinglePacketReceiver()
         self.listen(receiver)
         ack_msg = receiver.get_packet(5)
+        self.stop_listening()
         header = ack_msg[0]
         if header == 0:
             packets_to_retry = ack_msg[1:]
@@ -138,19 +142,58 @@ class Modem:
 
         return chirp
 
-    def listen(self, on_received_callback, kill_after_seconds=None):
-        modem = self._build_chirp_modem_for_listening(on_received_callback)
+    def receive_single_packet(self, timeout=None):
+        receiver = SinglePacketReceiver()
+        self.chirp.set_callbacks(receiver)
+        self.chirp.start(receive=True, send=False)
 
-        if kill_after_seconds:
-            time.sleep(kill_after_seconds)
-            modem.stop()
+        start = datetime.now()
+        if timeout:
+            timeout_delta = timedelta(seconds=timeout)
 
-    def _build_chirp_modem_for_listening(self, on_received_callback):
-        chirp = self._build_chirp_modem()
-        chirp.set_callbacks(PartialMessageReceiver(on_received_callback))
-        chirp.start(receive=True, send=False)
+        while receiver.packet is not None:
+            time.sleep(0.1)
 
-        return chirp
+            if timeout:
+                now = datetime.now()
+                if now - start > timeout_delta:
+                    break
+
+        self.stop_listening()
+        return receiver.packet
+
+    def receive_big_message(self, timeout=None):
+        receiver = MultipartMessageReceiver()
+        self.chirp.set_callbacks(receiver)
+        self.chirp.start(receive=True, send=False)
+
+        start = datetime.now()
+        if timeout:
+            timeout_delta = timedelta(seconds=timeout)
+
+        while receiver.message is not None:
+            time.sleep(0.1)
+
+            if timeout:
+                now = datetime.now()
+                if now - start > timeout_delta:
+                    break
+
+        self.stop_listening()
+        return receiver.message
+
+    def listen_for_packets(self, callback):
+        receiver = SinglePacketReceiver(callback)
+        self.chirp.set_callbacks(receiver)
+        self.chirp.start(receive=True, send=False)
+
+    def listen_for_messages(self, callback):
+        receiver = MultipartMessageReceiver(callback)
+        self.chirp.set_callbacks(receiver)
+        self.chirp.start(receive=True, send=False)
+
+    def stop_listening(self):
+        self.chirp.stop()
 
     def _build_chirp_modem(self):
         chirp = ChirpConnect(

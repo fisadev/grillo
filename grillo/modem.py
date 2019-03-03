@@ -112,26 +112,29 @@ class Modem:
         self.chirp = self._build_chirp_modem()
         self.with_confirmation = with_confirmation
 
-    def send(self, message, blocking=True):
+    def send_message(self, message):
+        """
+        Send a message as multiple packets.
+        """
         chain_len = self._get_chain_len(len(message))
         if chain_len > 255:
             raise MessageTooLongException()
 
-        modem = self._build_chirp_modem_for_send()
+        chirp = self._build_chirp_modem_for_send()
         packets_to_send = range(chain_len)
         while len(packets_to_send) > 0:
-            self._send_packets(modem, message, packets_to_send, chain_len, blocking)
-            if (self.with_confirmation):
+            self._send_packets(chirp, message, packets_to_send, chain_len)
+            if self.with_confirmation:
                 packets_to_send = self._get_packets_to_retry()
             else:
                 break
 
     def _get_packets_to_retry(self):
+        """
+        Wait for the other end to inform which parts of a message it didn't receive.
+        """
         packets_to_retry = []
-        receiver = SinglePacketReceiver()
-        self.listen(receiver)
-        ack_msg = receiver.get_packet(5)
-        self.stop_listening()
+        ack_msg = self.receive_packet(5)
         header = ack_msg[0]
         if header == 0:
             packets_to_retry = ack_msg[1:]
@@ -139,12 +142,21 @@ class Modem:
         else:
             raise MessageAckIsBroken()
 
-    def _send_packets(self, modem, message, packet_list, chain_len, blocking):
+    def _send_packets(self, chirp, message, packet_list, chain_len):
+        """
+        Send a message as multiple packets, one after the other.
+        """
         for i in packet_list:
             packet = (
                 bytes([chain_len, i])
                 + message[self.DATA_LEN * i:self.DATA_LEN * (i + 1)])
-            modem.send(packet, blocking)
+            self.send_packet(packet)
+
+    def send_packet(self, packet):
+        """
+        Send a single packet.
+        """
+        chirp.send(packet, blocking=True)
 
     def _get_chain_len(self, size):
         return size // self.DATA_LEN + 1

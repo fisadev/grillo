@@ -44,9 +44,9 @@ class SinglePacketReceiver(CallbackSet):
             self.callback(payload)
 
 
-class MultipartMessageReceiver(CallbackSet):
+class ChainedMessageReceiver(CallbackSet):
     """
-    A thing that can receive a multi part message, and stores it as an instance variable. It can
+    A thing that can receive a chained message, and stores it as an instance variable. It can
     also call a callback when the message is received.
     """
     def __init__(self, callback=None, reset_on_message=False):
@@ -179,7 +179,7 @@ class Modem:
         """
         Wait (blocking) for a single message, and return it when received.
         """
-        receiver = MultipartMessageReceiver()
+        receiver = ChainedMessageReceiver()
         self.chirp.set_callbacks(receiver)
         self.chirp.start(receive=True, send=False)
 
@@ -210,7 +210,7 @@ class Modem:
         """
         Start listening for messages, calling a callback whenever a packet is received.
         """
-        receiver = MultipartMessageReceiver(callback, reset_on_message=True)
+        receiver = ChainedMessageReceiver(callback, reset_on_message=True)
         self.chirp.set_callbacks(receiver)
         self.chirp.start(receive=True, send=False)
 

@@ -33,12 +33,22 @@ class ChirpCallbacks(CallbackSet):
 
 
 class Modem:
+    DATA_LEN = 30
+
     def send(self, message, blocking=True):
-        if len(message) > 32:
+        chain_len = self._get_chain_len(len(message))
+        if chain_len > 255:
             raise MessageTooLongException()
 
         modem = self._build_chirp_modem_for_send()
-        modem.send(message, blocking)
+        for i in range(chain_len):
+            packet = (
+                bytes([chain_len, i])
+                + message[self.DATA_LEN*i:self.DATA_LEN*(i+1)])
+            modem.send(packet, blocking)
+
+    def _get_chain_len(self, size):
+        return size // self.DATA_LEN
 
     def _build_chirp_modem_for_send(self):
         chirp = self._build_chirp_modem()

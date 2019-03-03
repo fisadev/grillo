@@ -18,13 +18,14 @@ class MessagePartsLostException(Exception):
     pass
 
 
-class ChirpCallbacks(CallbackSet):
+class PartialMessageReceiver(CallbackSet):
     """
-    Callbacks container that chirp expects to get.
+    A thing that can listen to chirp callbacks and build a message received in parts.
     """
     def __init__(self, callback):
         self.callback = callback
-        self.partial_message = None
+        self.total_parts = None
+        self.parts = []
 
     def on_received(self, payload, channel):
         """
@@ -37,38 +38,27 @@ class ChirpCallbacks(CallbackSet):
             part_number = payload[1]
             message_part = payload[2:]
 
-            if self.partial_message is None:
+            if self.total_parts is None:
                 # first part received!
 
                 if part_number != 0:
                     # but we missed the real first part
                     raise MessagePartsLostException("Missed the begining of the message.")
 
-                self.partial_message = PartialMessage(total_parts)
+                self.total_parts = total_parts
             else:
                 # middle or last part received
 
-                if part_number != self.partial_message.parts[-1][0] + 1:
+                if part_number != self.parts[-1][0] + 1:
                     # but we missed some part in between
                     raise MessagePartsLostException("Missed parts of the message.")
 
-            self.partial_message.parts.append((part_number, message_part))
+            self.parts.append((part_number, message_part))
 
             # finished receiving all the parts?
-            if self.partial_message.finished():
-                final_message = self.partial_message.combine()
-                self.partial_message = None
+            if self.finished():
+                final_message = self.combine()
                 self.callback(final_message)
-
-
-class PartialMessage:
-    """
-    Status of a reception process, in which we must concatenate multiple parts together to get
-    the full message.
-    """
-    def __init__(self, total_parts):
-        self.total_parts = total_parts
-        self.parts = []
 
     def finished(self):
         """
@@ -91,7 +81,7 @@ class Modem:
     longer than 32 bytes (sending multiple chirp messages for every grillo message).
     """
     DATA_LEN = 30
-    
+
     def send(self, message, blocking=True):
         chain_len = self._get_chain_len(len(message))
         if chain_len > 255:
@@ -118,7 +108,7 @@ class Modem:
 
     def _build_chirp_modem_for_listening(self, on_received_callback):
         chirp = self._build_chirp_modem()
-        chirp.set_callbacks(ChirpCallbacks(on_received_callback))
+        chirp.set_callbacks(PartialMessageReceiver(on_received_callback))
         chirp.start(receive=True, send=False)
 
         return chirp

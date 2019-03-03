@@ -21,6 +21,9 @@ class MessagePartsLostException(Exception):
     """
     pass
 
+class MessageAckIsBroken(Exception):
+    pass
+
 
 class PartialMessageReceiver(CallbackSet):
     """
@@ -102,6 +105,24 @@ class Modem:
             raise MessageTooLongException()
 
         modem = self._build_chirp_modem_for_send()
+        packets_to_send = range(chain_len)
+        while len(packets_to_send) > 0:
+            self._send_packets(modem, message, packets_to_send, blocking)
+            packets_to_send = self._get_packets_to_retry()
+
+    def _get_packets_to_retry(self):
+        packets_to_retry = []
+        receiver = SinglePacketReceiver()
+        self.listen(receiver)
+        ack_msg = receiver.get_packet(5)
+        header = ack_msg[0]
+        if header == 0:
+            packets_to_retry = ack_msg[1:]
+            return packets_to_retry
+        else:
+            raise MessageAckIsBroken()
+
+    def _send_packets(self, modem, message, packet_list, blocking):
         for i in range(chain_len):
             packet = (
                 bytes([chain_len, i])

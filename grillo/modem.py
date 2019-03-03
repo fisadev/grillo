@@ -163,17 +163,23 @@ class Modem:
             timeout_delta = timedelta(seconds=timeout)
 
         chained_message = None
+        last_expected_part = None
 
         while chained_message is None:
             time.sleep(0.1)
 
             if self.chained_total_parts is not None:
                 # finished receiving all the parts?
+                if last_expected_part is None:
+                    last_expected_part = self.chained_total_parts - 1
+
                 missing_parts = self.chained_missing_parts()
                 if missing_parts:
-                    if self.chained_total_parts - 1 in self.chained_parts:
+                    if last_expected_part in self.chained_parts:
                         # we received the last part, and we missed other
-                        self.send_ack(missing_parts[:self.DATA_LEN])
+                        parts_to_resend = missing_parts[:self.DATA_LEN]
+                        last_expected_part = parts_to_resend[-1]
+                        self.send_ack(parts_to_resend)
                 else:
                     chained_message = self.chained_combine()
                     self.send_ack()

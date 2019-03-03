@@ -162,7 +162,7 @@ class Modem:
         self.stop_listening()
         return receiver.packet
 
-    def receive_big_message(self, timeout=None):
+    def receive_message(self, timeout=None):
         receiver = MultipartMessageReceiver()
         self.chirp.set_callbacks(receiver)
         self.chirp.start(receive=True, send=False)

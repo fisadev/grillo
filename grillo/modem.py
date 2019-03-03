@@ -75,7 +75,7 @@ class MultipartMessageReceiver(CallbackSet):
             # finished receiving all the parts?
             if self.finished():
                 self.message = self.combine()
-                self.callback(final_message)
+                self.callback(self.message)
 
     def finished(self):
         """
@@ -142,7 +142,10 @@ class Modem:
 
         return chirp
 
-    def receive_single_packet(self, timeout=None):
+    def receive_packet(self, timeout=None):
+        """
+        Wait (blocking) for a single packet, and return it when received.
+        """
         receiver = SinglePacketReceiver()
         self.chirp.set_callbacks(receiver)
         self.chirp.start(receive=True, send=False)
@@ -163,6 +166,9 @@ class Modem:
         return receiver.packet
 
     def receive_message(self, timeout=None):
+        """
+        Wait (blocking) for a single message, and return it when received.
+        """
         receiver = MultipartMessageReceiver()
         self.chirp.set_callbacks(receiver)
         self.chirp.start(receive=True, send=False)
@@ -183,16 +189,25 @@ class Modem:
         return receiver.message
 
     def listen_for_packets(self, callback):
+        """
+        Start listening for packets, calling a callback whenever a packet is received.
+        """
         receiver = SinglePacketReceiver(callback)
         self.chirp.set_callbacks(receiver)
         self.chirp.start(receive=True, send=False)
 
     def listen_for_messages(self, callback):
+        """
+        Start listening for messages, calling a callback whenever a packet is received.
+        """
         receiver = MultipartMessageReceiver(callback)
         self.chirp.set_callbacks(receiver)
         self.chirp.start(receive=True, send=False)
 
     def stop_listening(self):
+        """
+        Stop using chirp to listen for packets.
+        """
         self.chirp.stop()
 
     def _build_chirp_modem(self):

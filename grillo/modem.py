@@ -49,9 +49,11 @@ class ChainedMessageReceiver(CallbackSet):
     A thing that can receive a chained message, and stores it as an instance variable. It can
     also call a callback when the message is received.
     """
-    def __init__(self, callback=None, reset_on_message=False):
+    def __init__(self, modem, callback=None, reset_on_message=False, with_confirmation=False):
+        self.modem = modem
         self.callback = callback
         self.reset_on_message = reset_on_message
+        self.with_confirmation = with_confirmation
 
         self.reset_status()
 
@@ -61,7 +63,7 @@ class ChainedMessageReceiver(CallbackSet):
         """
         self.message = None
         self.total_parts = None
-        self.parts = []
+        self.parts = {}
 
     def on_received(self, payload, channel):
         """
@@ -76,7 +78,7 @@ class ChainedMessageReceiver(CallbackSet):
                 # first part received!
                 self.total_parts = total_parts
 
-            self.parts.append((part_number, message_part))
+            self.parts[part_number] = message_part
 
             # finished receiving all the parts?
             if self.finished():
@@ -92,14 +94,14 @@ class ChainedMessageReceiver(CallbackSet):
         """
         Is the message complete?
         """
-        return len(self.parts) == self.total_parts
+        return len(self.parts.keys()) == self.total_parts
 
     def combine(self):
         """
         Concatenate all the message parts.
         """
-        return b''.join(message_part
-                        for part_number, message_part in self.parts)
+        return b''.join(self.parts[part_number]
+                        for part_number in range(self.total_parts))
 
 
 class Modem:
@@ -194,7 +196,7 @@ class Modem:
         """
         Wait (blocking) for a single message, and return it when received.
         """
-        receiver = ChainedMessageReceiver()
+        receiver = ChainedMessageReceiver(self, with_confirmation=self.with_confirmation)
         self.chirp.set_callbacks(receiver)
 
         start = datetime.now()
@@ -223,7 +225,8 @@ class Modem:
         """
         Start listening for messages, calling a callback whenever a packet is received.
         """
-        receiver = ChainedMessageReceiver(callback, reset_on_message=True)
+        receiver = ChainedMessageReceiver(self, callback, reset_on_message=True,
+                                          with_confirmation=self.with_confirmation)
         self.chirp.set_callbacks(receiver)
 
     def stop_listening(self):

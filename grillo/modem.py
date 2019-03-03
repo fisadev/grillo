@@ -109,7 +109,12 @@ class Modem:
     DATA_LEN = 30
 
     def __init__(self, with_confirmation=False):
-        self.chirp = self._build_chirp_modem()
+        self.chirp = ChirpConnect(
+            key=config.CHIRP_APP_KEY,
+            secret=config.CHIRP_APP_SECRET,
+            config=config.CHIRP_APP_CONFIG,
+        )
+
         self.with_confirmation = with_confirmation
 
     def send_message(self, message):
@@ -120,10 +125,9 @@ class Modem:
         if chain_len > 255:
             raise MessageTooLongException()
 
-        chirp = self._build_chirp_modem_for_send()
         packets_to_send = range(chain_len)
         while len(packets_to_send) > 0:
-            self._send_packets(chirp, message, packets_to_send, chain_len)
+            self._send_packets(message, packets_to_send, chain_len)
             if self.with_confirmation:
                 packets_to_send = self._get_packets_to_retry()
             else:
@@ -142,7 +146,7 @@ class Modem:
         else:
             raise MessageAckIsBroken()
 
-    def _send_packets(self, chirp, message, packet_list, chain_len):
+    def _send_packets(self, message, packet_list, chain_len):
         """
         Send a message as multiple packets, one after the other.
         """
@@ -156,16 +160,12 @@ class Modem:
         """
         Send a single packet.
         """
+        self.chirp.start(send=True, receive=False)
         self.chirp.send(packet, blocking=True)
+        self.chirp.stop()
 
     def _get_chain_len(self, size):
         return size // self.DATA_LEN + 1
-
-    def _build_chirp_modem_for_send(self):
-        chirp = self._build_chirp_modem()
-        chirp.start(send=True, receive=False)
-
-        return chirp
 
     def receive_packet(self, timeout=None):
         """
@@ -234,12 +234,3 @@ class Modem:
         Stop using chirp to listen for packets.
         """
         self.chirp.stop()
-
-    def _build_chirp_modem(self):
-        chirp = ChirpConnect(
-            key=config.CHIRP_APP_KEY,
-            secret=config.CHIRP_APP_SECRET,
-            config=config.CHIRP_APP_CONFIG,
-        )
-
-        return chirp

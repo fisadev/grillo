@@ -41,14 +41,14 @@ class Modem:
             raise MessageTooLongException()
 
         modem = self._build_chirp_modem_for_send()
-        for i in range(chain_len + 1):
+        for i in range(chain_len):
             packet = (
                 bytes([chain_len, i])
                 + message[self.DATA_LEN * i:self.DATA_LEN * (i + 1)])
             modem.send(packet, blocking)
 
     def _get_chain_len(self, size):
-        return size // self.DATA_LEN
+        return size // self.DATA_LEN + 1
 
     def _build_chirp_modem_for_send(self):
         chirp = self._build_chirp_modem()

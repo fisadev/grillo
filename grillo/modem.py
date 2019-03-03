@@ -44,66 +44,6 @@ class SinglePacketReceiver(CallbackSet):
             self.callback(payload)
 
 
-class ChainedMessageReceiver(CallbackSet):
-    """
-    A thing that can receive a chained message, and stores it as an instance variable. It can
-    also call a callback when the message is received.
-    """
-    def __init__(self, modem, callback=None, reset_on_message=False, with_confirmation=False):
-        self.modem = modem
-        self.callback = callback
-        self.reset_on_message = reset_on_message
-        self.with_confirmation = with_confirmation
-
-        self.reset_status()
-
-    def reset_status(self):
-        """
-        Reset the receiving status.
-        """
-        self.message = None
-        self.total_parts = None
-        self.parts = {}
-
-    def on_received(self, payload, channel):
-        """
-        Executed when chirp receives data.
-        """
-        if payload is not None:
-            total_parts = payload[0]
-            part_number = payload[1]
-            message_part = payload[2:]
-
-            if self.total_parts is None:
-                # first part received!
-                self.total_parts = total_parts
-
-            self.parts[part_number] = message_part
-
-            # finished receiving all the parts?
-            if self.finished():
-                self.message = self.combine()
-
-                if self.callback is not None:
-                    self.callback(self.message)
-
-                if self.reset_on_message:
-                    self.reset_status()
-
-    def finished(self):
-        """
-        Is the message complete?
-        """
-        return len(self.parts.keys()) == self.total_parts
-
-    def combine(self):
-        """
-        Concatenate all the message parts.
-        """
-        return b''.join(self.parts[part_number]
-                        for part_number in range(self.total_parts))
-
-
 class Modem:
     """
     An audio modem able to encode and decode data from/to audio. Internally uses chirp for
@@ -121,6 +61,15 @@ class Modem:
         self.chirp.start(send=True, receive=True)
 
         self.with_confirmation = with_confirmation
+        self.reset_chained_status()
+
+    def reset_chained_status(self):
+        """
+        Reset the status of the chained message that is being received.
+        """
+        self.chained_message = None
+        self.chained_total_parts = None
+        self.chained_parts = {}
 
     def send_message(self, message):
         """
@@ -196,14 +145,16 @@ class Modem:
         """
         Wait (blocking) for a single message, and return it when received.
         """
-        receiver = ChainedMessageReceiver(self, with_confirmation=self.with_confirmation)
+        self.reset_chained_status()
+
+        receiver = SinglePacketReceiver(callback=self.on_chained_part_received)
         self.chirp.set_callbacks(receiver)
 
         start = datetime.now()
         if timeout:
             timeout_delta = timedelta(seconds=timeout)
 
-        while receiver.message is None:
+        while self.chained_message is None:
             time.sleep(0.1)
 
             if timeout:
@@ -212,7 +163,45 @@ class Modem:
                     break
 
         self.stop_listening()
-        return receiver.message
+
+        return self.chained_message
+
+    def on_chained_part_received(self, packet):
+        """
+        Executed when chirp receives data that is part of a chained message.
+        """
+        if packet is not None:
+            total_parts = packet[0]
+            part_number = packet[1]
+            message_part = packet[2:]
+
+            if self.chained_total_parts is None:
+                # first part received!
+                self.chained_total_parts = total_parts
+
+            self.chained_parts[part_number] = message_part
+
+            # finished receiving all the parts?
+            if self.chained_finished():
+                self.chained_message = self.chained_combine()
+
+                # TODO fix for the scenario of the listen_for_messages
+                # if self.callback is not None:
+                    # self.callback(self.message)
+                # self.reset_chained_status()
+
+    def chained_finished(self):
+        """
+        Is the message complete?
+        """
+        return len(self.chained_parts.keys()) == self.chained_total_parts
+
+    def chained_combine(self):
+        """
+        Concatenate all the message parts.
+        """
+        return b''.join(self.chained_parts[part_number]
+                        for part_number in range(self.chained_total_parts))
 
     def listen_for_packets(self, callback):
         """
@@ -225,6 +214,7 @@ class Modem:
         """
         Start listening for messages, calling a callback whenever a packet is received.
         """
+        self.reset_chained_status()
         receiver = ChainedMessageReceiver(self, callback, reset_on_message=True,
                                           with_confirmation=self.with_confirmation)
         self.chirp.set_callbacks(receiver)

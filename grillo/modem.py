@@ -51,6 +51,7 @@ class Modem:
     longer than 32 bytes (sending multiple chirp messages for every grillo message).
     """
     DATA_LEN = 30
+    PACKET_DURATION = timedelta(seconds=4.66)
 
     def __init__(self, with_confirmation=False):
         self.chirp = ChirpConnect(

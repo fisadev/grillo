@@ -24,6 +24,12 @@ class PartialMessageReceiver(CallbackSet):
     """
     def __init__(self, callback):
         self.callback = callback
+        self.reset_status()
+
+    def reset_status(self):
+        """
+        Reset reception status.
+        """
         self.total_parts = None
         self.parts = []
 
@@ -32,6 +38,7 @@ class PartialMessageReceiver(CallbackSet):
         Executed when chirp receives data.
         """
         if payload is None:
+            self.reset_status()
             raise MessagePartsLostException("A part of the message failed to decode.")
         else:
             total_parts = payload[0]
@@ -43,6 +50,7 @@ class PartialMessageReceiver(CallbackSet):
 
                 if part_number != 0:
                     # but we missed the real first part
+                    self.reset_status()
                     raise MessagePartsLostException("Missed the begining of the message.")
 
                 self.total_parts = total_parts
@@ -51,6 +59,7 @@ class PartialMessageReceiver(CallbackSet):
 
                 if part_number != self.parts[-1][0] + 1:
                     # but we missed some part in between
+                    self.reset_status()
                     raise MessagePartsLostException("Missed parts of the message.")
 
             self.parts.append((part_number, message_part))
@@ -58,6 +67,7 @@ class PartialMessageReceiver(CallbackSet):
             # finished receiving all the parts?
             if self.finished():
                 final_message = self.combine()
+                self.reset_status()
                 self.callback(final_message)
 
     def finished(self):

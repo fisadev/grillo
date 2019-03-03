@@ -26,7 +26,7 @@ class Grillo:
 
     def __init__(self):
         self.modem = Modem()
-        self.listening = False
+        self.message_received = False
 
     def send_text(self, text):
         """
@@ -70,11 +70,15 @@ class Grillo:
         """
         Receive whatever data is being sent from the source computer.
         """
-        self.listening = True
-        self.modem.listen(self._receive_message)
+        if forever:
+            self.modem.listen_for_messages(self._receive_message)
 
-        while self.listening or forever:
-            time.sleep(1)
+            while True:
+                time.sleep(0.5)
+        else:
+            message = self.modem.receive_message()
+            self._receive_message(message)
+
 
     def _receive_message(self, message):
         """
@@ -87,8 +91,6 @@ class Grillo:
             self._receive_clipboard(payload)
         elif kind == MessageKind.FILE:
             self._receive_file(payload)
-
-        self.listening = False
 
     def _parse_message(self, message):
         """

@@ -156,7 +156,7 @@ class Modem:
         """
         Send a single packet.
         """
-        chirp.send(packet, blocking=True)
+        self.chirp.send(packet, blocking=True)
 
     def _get_chain_len(self, size):
         return size // self.DATA_LEN + 1

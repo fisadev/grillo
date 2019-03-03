@@ -99,6 +99,9 @@ class Modem:
     """
     DATA_LEN = 30
 
+    def __init__(self, with_confirmation):
+        self.with_confirmation = with_confirmation
+
     def send(self, message, blocking=True):
         chain_len = self._get_chain_len(len(message))
         if chain_len > 255:
@@ -108,8 +111,10 @@ class Modem:
         packets_to_send = range(chain_len)
         while len(packets_to_send) > 0:
             self._send_packets(modem, message, packets_to_send, chain_len, blocking)
-# TODO           packets_to_send = self._get_packets_to_retry()
-            packets_to_send = []
+            if (self.with_confirmation):
+                packets_to_send = self._get_packets_to_retry()
+            else:
+                break
 
     def _get_packets_to_retry(self):
         packets_to_retry = []

@@ -24,9 +24,10 @@ class Grillo:
     HEADER_SEPARATOR = b"|"
     FILE_NAME_SEPARATOR = b"<NAME>"
 
-    def __init__(self):
-        self.modem = Modem()
+    def __init__(self, with_confirmation=False):
+        self.modem = Modem(with_confirmation)
         self.listening = False
+        self.with_confirmation = with_confirmation
 
     def send_text(self, text):
         """
@@ -139,15 +140,21 @@ class Grillo:
         print("Received a file, saved to", str(file_path))
 
 
-class GrilloCli:
+class GrilloCli(object):
     """
     Cli tool to use Grillo from the command line.
+
+    with_confirmation: bool
+        Wait/Send ack message to retry missing packets if needed
     """
+    def __init__(self, with_confirmation=False):
+        self.with_confirmation = with_confirmation
+
     def text(self, text):
         """
         Send a text.
         """
-        grillo = Grillo()
+        grillo = Grillo(self.with_confirmation)
         try:
             grillo.send_text(text)
         except MessageTooLongException:
@@ -163,7 +170,7 @@ class GrilloCli:
         """
         Send the contents of the clipboard.
         """
-        grillo = Grillo()
+        grillo = Grillo(self.with_confirmation)
         try:
             grillo.send_clipboard()
         except MessageTooLongException:
@@ -173,7 +180,7 @@ class GrilloCli:
         """
         Send a file.
         """
-        grillo = Grillo()
+        grillo = Grillo(self.with_confirmation)
         try:
             grillo.send_file(file_path)
         except MessageTooLongException:
@@ -183,7 +190,7 @@ class GrilloCli:
         """
         Receive whatever data is being sent from the source computer.
         """
-        grillo = Grillo()
+        grillo = Grillo(self.with_confirmation)
         try:
             grillo.listen(forever)
         except KeyboardInterrupt:

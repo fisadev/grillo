@@ -16,6 +16,9 @@ class MessageTooLongException(Exception):
 
 
 class MessagePartsLostException(Exception):
+    """
+    Error raised when part of a message can't be read.
+    """
     pass
 
 

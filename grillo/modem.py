@@ -18,53 +18,13 @@ class MessagePartsLostException(Exception):
     pass
 
 
-class PartialMessage:
+class ChirpCallbacks(CallbackSet):
     """
-    Status of a reception process, in which we must concatenate multiple parts together to get
-    the full message.
+    Callbacks container that chirp expects to get.
     """
-    def __init__(self, total_parts):
-        self.total_parts = total_parts
-        self.parts = []
-
-    def finished(self):
-        """
-        Is the message complete?
-        """
-        return len(self.parts) == self.total_parts
-
-    def combine(self):
-        """
-        Concatenate all the message parts.
-        """
-        return b''.join(message_part
-                        for part_number, message_part in self.parts)
-
-class Modem:
-    """
-    An audio modem able to encode and decode data from/to audio. Internally uses chirp for
-    the modulation/demodulation and error correction, but adding a layer that allows for messages
-    longer than 32 bytes (sending multiple chirp messages for every grillo message).
-    """
-    def __init__(self):
+    def __init__(self, callback):
+        self.callback = callback
         self.partial_message = None
-
-    def send(self, message, blocking=True):
-        if len(message) > 32:
-            raise MessageTooLongException()
-
-        modem = self._build_chirp_modem_for_send()
-        modem.send(message, blocking)
-
-    def _build_chirp_modem_for_send(self):
-        chirp = self._build_chirp_modem()
-        chirp.start(send=True, receive=False)
-
-        return chirp
-
-    def listen(self, on_received_callback):
-        self.on_received_callback = on_received_callback
-        modem = self._build_chirp_modem_for_listening()
 
     def on_received(self, payload, channel):
         """
@@ -73,7 +33,7 @@ class Modem:
         if payload is not None:
             total_parts = payload[0]
             part_number = payload[1]
-            message_part = payload[1:]
+            message_part = payload[2:]
 
             if self.partial_message is None:
                 # first part received!
@@ -96,13 +56,60 @@ class Modem:
             if self.partial_message.finished():
                 final_message = self.partial_message.combine()
                 self.partial_message = None
-                self.on_received_callback(final_message)
+                self.callback(final_message)
         else:
             print('Decode failed')
+            self.partial_message = None
 
-    def _build_chirp_modem_for_listening(self):
+
+class PartialMessage:
+    """
+    Status of a reception process, in which we must concatenate multiple parts together to get
+    the full message.
+    """
+    def __init__(self, total_parts):
+        self.total_parts = total_parts
+        self.parts = []
+
+    def finished(self):
+        """
+        Is the message complete?
+        """
+        return len(self.parts) == self.total_parts
+
+    def combine(self):
+        """
+        Concatenate all the message parts.
+        """
+        return b''.join(message_part
+                        for part_number, message_part in self.parts)
+
+
+class Modem:
+    """
+    An audio modem able to encode and decode data from/to audio. Internally uses chirp for
+    the modulation/demodulation and error correction, but adding a layer that allows for messages
+    longer than 32 bytes (sending multiple chirp messages for every grillo message).
+    """
+    def send(self, message, blocking=True):
+        if len(message) > 32:
+            raise MessageTooLongException()
+
+        modem = self._build_chirp_modem_for_send()
+        modem.send(message, blocking)
+
+    def _build_chirp_modem_for_send(self):
         chirp = self._build_chirp_modem()
-        chirp.set_callbacks(self)
+        chirp.start(send=True, receive=False)
+
+        return chirp
+
+    def listen(self, on_received_callback):
+        modem = self._build_chirp_modem_for_listening(on_received_callback)
+
+    def _build_chirp_modem_for_listening(self, on_received_callback):
+        chirp = self._build_chirp_modem()
+        chirp.set_callbacks(ChirpCallbacks(on_received_callback))
         chirp.start(receive=True, send=False)
 
         return chirp

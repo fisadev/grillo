@@ -92,6 +92,9 @@ class Modem:
         """
         packets_to_retry = []
         ack_msg = self.receive_packet(5)
+        if ack_msg is None:
+            return []
+
         header = ack_msg[0]
         if header == 0:
             packets_to_retry = ack_msg[1:]

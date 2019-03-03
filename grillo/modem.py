@@ -30,7 +30,9 @@ class ChirpCallbacks(CallbackSet):
         """
         Executed when chirp receives data.
         """
-        if payload is not None:
+        if payload is None:
+            raise MessagePartsLostException("A part of the message failed to decode.")
+        else:
             total_parts = payload[0]
             part_number = payload[1]
             message_part = payload[2:]
@@ -57,9 +59,6 @@ class ChirpCallbacks(CallbackSet):
                 final_message = self.partial_message.combine()
                 self.partial_message = None
                 self.callback(final_message)
-        else:
-            print('Decode failed')
-            self.partial_message = None
 
 
 class PartialMessage:

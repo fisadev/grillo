@@ -116,6 +116,7 @@ class Modem:
             secret=config.CHIRP_APP_SECRET,
             config=config.CHIRP_APP_CONFIG,
         )
+        self.chirp.start(send=True, receive=True)
 
         self.with_confirmation = with_confirmation
 
@@ -162,9 +163,7 @@ class Modem:
         """
         Send a single packet.
         """
-        self.chirp.start(send=True, receive=False)
         self.chirp.send(packet, blocking=True)
-        self.chirp.stop()
 
     def _get_chain_len(self, size):
         return size // self.DATA_LEN + 1
@@ -175,7 +174,6 @@ class Modem:
         """
         receiver = SinglePacketReceiver()
         self.chirp.set_callbacks(receiver)
-        self.chirp.start(receive=True, send=False)
 
         start = datetime.now()
         if timeout:
@@ -198,7 +196,6 @@ class Modem:
         """
         receiver = ChainedMessageReceiver()
         self.chirp.set_callbacks(receiver)
-        self.chirp.start(receive=True, send=False)
 
         start = datetime.now()
         if timeout:
@@ -221,7 +218,6 @@ class Modem:
         """
         receiver = SinglePacketReceiver(callback)
         self.chirp.set_callbacks(receiver)
-        self.chirp.start(receive=True, send=False)
 
     def listen_for_messages(self, callback):
         """
@@ -229,10 +225,9 @@ class Modem:
         """
         receiver = ChainedMessageReceiver(callback, reset_on_message=True)
         self.chirp.set_callbacks(receiver)
-        self.chirp.start(receive=True, send=False)
 
     def stop_listening(self):
         """
         Stop using chirp to listen for packets.
         """
-        self.chirp.stop()
+        self.chirp.set_callbacks(None)

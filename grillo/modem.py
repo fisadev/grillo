@@ -81,7 +81,9 @@ class ChainedMessageReceiver(CallbackSet):
             # finished receiving all the parts?
             if self.finished():
                 self.message = self.combine()
-                self.callback(self.message)
+
+                if self.callback is not None:
+                    self.callback(self.message)
 
                 if self.reset_on_message:
                     self.reset_status()
@@ -179,7 +181,7 @@ class Modem:
         if timeout:
             timeout_delta = timedelta(seconds=timeout)
 
-        while receiver.packet is not None:
+        while receiver.packet is None:
             time.sleep(0.1)
 
             if timeout:
@@ -202,7 +204,7 @@ class Modem:
         if timeout:
             timeout_delta = timedelta(seconds=timeout)
 
-        while receiver.message is not None:
+        while receiver.message is None:
             time.sleep(0.1)
 
             if timeout:

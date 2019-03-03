@@ -92,7 +92,7 @@ class Grillo:
 
     def _parse_message(self, message):
         """
-        Read a serialized message received over audio.
+        Parce message received over audio.
         """
         parts = message.split(Grillo.HEADER_SEPARATOR)
 

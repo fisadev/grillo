@@ -108,7 +108,7 @@ class Modem:
     """
     DATA_LEN = 30
 
-    def __init__(self):
+    def __init__(self, with_confirmation=False):
         self.chirp = self._build_chirp_modem()
         self.with_confirmation = with_confirmation
 

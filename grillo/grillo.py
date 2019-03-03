@@ -65,7 +65,7 @@ class Grillo:
         """
         message = kind.value.encode("utf-8") + Grillo.HEADER_SEPARATOR + payload
 
-        self.modem.send(message, blocking=True)
+        self.modem.send_message(message)
 
     def listen(self, forever=False):
         """

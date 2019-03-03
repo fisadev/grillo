@@ -67,7 +67,6 @@ class Modem:
         """
         Reset the status of the chained message that is being received.
         """
-        self.chained_message = None
         self.chained_total_parts = None
         self.chained_parts = {}
 
@@ -116,6 +115,15 @@ class Modem:
         """
         self.chirp.send(packet, blocking=True)
 
+    def send_ack(self, missing_parts=None):
+        """
+        Send a packet informing the missing parts of a chained message.
+        """
+        if missing_parts is None:
+            missing_parts = []
+
+        self.send_packet(bytes([0] + missing_parts))
+
     def _get_chain_len(self, size):
         return size // self.DATA_LEN + 1
 
@@ -154,8 +162,22 @@ class Modem:
         if timeout:
             timeout_delta = timedelta(seconds=timeout)
 
-        while self.chained_message is None:
+        chained_message = None
+
+        while chained_message is None:
             time.sleep(0.1)
+
+            if self.chained_total_parts is not None:
+                # finished receiving all the parts?
+                missing_parts = self.chained_missing_parts()
+                if missing_parts:
+                    if self.chained_total_parts - 1 in self.chained_parts:
+                        # we received the last part, and we missed other
+                        self.send_ack(missing_parts[:self.DATA_LEN])
+                else:
+                    chained_message = self.chained_combine()
+                    self.send_ack()
+                    break
 
             if timeout:
                 now = datetime.now()
@@ -163,8 +185,9 @@ class Modem:
                     break
 
         self.stop_listening()
+        self.reset_chained_status()
 
-        return self.chained_message
+        return chained_message
 
     def on_chained_part_received(self, packet):
         """
@@ -181,20 +204,12 @@ class Modem:
 
             self.chained_parts[part_number] = message_part
 
-            # finished receiving all the parts?
-            if self.chained_finished():
-                self.chained_message = self.chained_combine()
-
-                # TODO fix for the scenario of the listen_for_messages
-                # if self.callback is not None:
-                    # self.callback(self.message)
-                # self.reset_chained_status()
-
-    def chained_finished(self):
+    def chained_missing_parts(self):
         """
-        Is the message complete?
+        Which parts of the message are missing?
         """
-        return len(self.chained_parts.keys()) == self.chained_total_parts
+        return [part_number for part_number in range(self.chained_total_parts)
+                if part_number not in self.chained_parts]
 
     def chained_combine(self):
         """
@@ -214,10 +229,10 @@ class Modem:
         """
         Start listening for messages, calling a callback whenever a packet is received.
         """
-        self.reset_chained_status()
-        receiver = ChainedMessageReceiver(self, callback, reset_on_message=True,
-                                          with_confirmation=self.with_confirmation)
-        self.chirp.set_callbacks(receiver)
+        while True:
+            message = self.receive_message()
+            callback(message)
+            self.reset_chained_status()
 
     def stop_listening(self):
         """

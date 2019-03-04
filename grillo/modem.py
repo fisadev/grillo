@@ -16,13 +16,10 @@ class MessageTooLongException(Exception):
     pass
 
 
-class MessagePartsLostException(Exception):
-    """
-    Error raised when part of a message can't be read.
-    """
-    pass
-
 class MessageAckIsBroken(Exception):
+    """
+    Error raised when the ack packet isn't received correctly.
+    """
     pass
 
 

@@ -2,10 +2,9 @@ import time
 from enum import Enum
 from pathlib import Path
 
-import fire
 import pyperclip
 
-from grillo.modem import Modem, MessageTooLongException
+from grillo.modem import Modem
 
 
 class MessageKind(Enum):
@@ -140,73 +139,3 @@ class Grillo:
             file.write(file_contents)
 
         print("Received a file, saved to", str(file_path))
-
-
-class GrilloCli(object):
-    """
-    Cli tool to use Grillo from the command line.
-
-    brave: bool
-        The default mode waits/sends ack messages to retry missing packets if needed.
-        "Brave" mode disables those acks, assuming all the message arrive perfectly all the time.
-        If you use brave and a packet is lost, the whole message won't be received.
-    """
-    def __init__(self, brave=False):
-        self._with_confirmation = not brave
-
-    def text(self, text):
-        """
-        Send a text.
-        """
-        grillo = Grillo(self._with_confirmation)
-        try:
-            grillo.send_text(text)
-        except MessageTooLongException:
-            print("Text is too long to be sent.")
-
-    def clip(self):
-        """
-        Send the contents of the clipboard.
-        """
-        self.clipboard()
-
-    def clipboard(self):
-        """
-        Send the contents of the clipboard.
-        """
-        grillo = Grillo(self._with_confirmation)
-        try:
-            grillo.send_clipboard()
-        except MessageTooLongException:
-            print("Clipboard contents are too big to be sent.")
-
-    def file(self, file_path):
-        """
-        Send a file.
-        """
-        grillo = Grillo(self._with_confirmation)
-        try:
-            grillo.send_file(file_path)
-        except MessageTooLongException:
-            print("File is too big to be sent.")
-
-    def listen(self, forever=False):
-        """
-        Receive whatever data is being sent from the source computer.
-        """
-        grillo = Grillo(self._with_confirmation)
-        try:
-            grillo.listen(forever)
-        except KeyboardInterrupt:
-            print("Grillo was killed. Poor little grillo.")
-
-
-def main():
-    """
-    Entry point when executed via command line.
-    """
-    fire.Fire(GrilloCli)
-
-
-if __name__ == '__main__':
-    main()

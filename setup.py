@@ -16,12 +16,12 @@ setup(
     packages=find_packages(exclude=["tests"]),
     url="https://github.com/fisadev/grillo",
     entry_points={
-        'console_scripts': ['grillo=grillo.grillo:main'],
+        'console_scripts': ['grillo=grillo.cli:main'],
     },
     install_requires=[
         "chirpsdk",
         "pyperclip",
-        "fire",
+        "docopt",
         "termcolor",
         "traitlets",  # dependency of chirp, but missing in their requirements
     ],

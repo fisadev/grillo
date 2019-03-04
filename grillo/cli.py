@@ -40,18 +40,18 @@ def main():
     with_confirmation = not arguments['--brave']
     grillo = Grillo(with_confirmation)
 
-    if 'listen' in arguments:
+    if arguments['listen']:
         try:
             grillo.listen(arguments['--forever'])
         except KeyboardInterrupt:
             cprint("Grillo was killed. Poor little grillo.", "yellow")
     else:
         try:
-            if 'text' in arguments:
+            if arguments['text']:
                 grillo.send_text(arguments['<text>'])
-            elif 'clip' in arguments or 'clipboard' in arguments:
+            elif arguments['clip'] or arguments['clipboard']:
                 grillo.send_clipboard()
-            elif 'file' in arguments:
+            elif arguments['file']:
                 grillo.send_file(arguments['<file_path>'])
         except MessageTooLongException:
             cprint("Contents are too long to send, Grillo can't handle them :(", "red")

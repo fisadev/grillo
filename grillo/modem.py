@@ -92,7 +92,7 @@ class Modem:
         Wait for the other end to inform which parts of a message it didn't receive.
         """
         packets_to_retry = []
-        ack_msg = self.receive_packet(5)
+        ack_msg = self.receive_packet(self.PACKET_DURATION * 2)
         if ack_msg is None:
             return []
 
@@ -139,21 +139,19 @@ class Modem:
         self.chirp.set_callbacks(receiver)
 
         start = datetime.now()
-        if timeout:
-            timeout_delta = timedelta(seconds=timeout)
 
         while receiver.packet is None:
             time.sleep(0.1)
 
             if timeout:
                 now = datetime.now()
-                if now - start > timeout_delta:
+                if now - start > timeout:
                     break
 
         self.stop_listening()
         return receiver.packet
 
-    def receive_message(self, timeout=None):
+    def receive_message(self, timeout=300):
         """
         Wait (blocking) for a single message, and return it when received.
         """
@@ -162,12 +160,13 @@ class Modem:
         receiver = SinglePacketReceiver(callback=self.on_chained_part_received)
         self.chirp.set_callbacks(receiver)
 
-        start = datetime.now()
+        self.timeout_start = datetime.now()
         if timeout:
-            timeout_delta = timedelta(seconds=timeout)
+            self.timeout_delta = timedelta(seconds=timeout)
 
         chained_message = None
         last_expected_part = None
+        self.packets_to_receive = None
 
         while chained_message is None:
             time.sleep(0.1)
@@ -179,25 +178,29 @@ class Modem:
 
                 missing_parts = self.chained_missing_parts()
                 if missing_parts:
-                    if last_expected_part in self.chained_parts:
+                    if last_expected_part in self.chained_parts or self._timeout_expired():
                         # we received the last part, and we missed other
                         parts_to_resend = missing_parts[:self.DATA_LEN]
                         last_expected_part = parts_to_resend[-1]
+                        self.packets_to_receive = len(parts_to_resend)
+                        self._set_timeout(self.packets_to_receive)
                         self.send_ack(parts_to_resend)
                 else:
                     chained_message = self.chained_combine()
                     self.send_ack()
                     break
 
-            if timeout:
-                now = datetime.now()
-                if now - start > timeout_delta:
-                    break
+            if timeout and self.packets_to_receive is None and self._timeout_expired():
+                break
 
         self.stop_listening()
         self.reset_chained_status()
 
         return chained_message
+
+    def _timeout_expired(self):
+        now = datetime.now()
+        return (now - self.timeout_start) > self.timeout_delta
 
     def on_chained_part_received(self, packet):
         """
@@ -213,6 +216,14 @@ class Modem:
                 self.chained_total_parts = total_parts
 
             self.chained_parts[part_number] = message_part
+            if self.packets_to_receive is None:
+                self.packets_to_receive = total_parts - part_number
+            self.packets_to_receive -= 1
+            self._set_timeout(self.packets_to_receive)
+
+    def _set_timeout(self, packets_to_wait_for):
+        self.timeout_delta = self.PACKET_DURATION * (packets_to_wait_for + 1.5)
+        self.timeout_start = datetime.now()
 
     def chained_missing_parts(self):
         """

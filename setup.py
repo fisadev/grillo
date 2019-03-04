@@ -3,15 +3,9 @@ import os.path
 from setuptools import setup, find_packages
 
 
-# https://packaging.python.org/guides/single-sourcing-package-version/
-version = {}
-with open(os.path.join("grillo", "version.py")) as fp:
-    exec(fp.read(), version)
-
-
 setup(
-    name="Grillo",
-    version=version["__version__"],
+    name="GrilloModem",
+    version='1.0.0',
     author="Juan Pedro Fisanotti",
     author_email="fisadev@gmail.com",
     license="GPLv3",
@@ -21,7 +15,7 @@ setup(
     keywords=["audio", "modem", "clipboard", "transfer"],
     packages=find_packages(exclude=["tests"]),
     url="https://github.com/fisadev/grillo",
-    entry_points = {
+    entry_points={
         'console_scripts': ['grillo=grillo.grillo:main'],
     },
     install_requires=[

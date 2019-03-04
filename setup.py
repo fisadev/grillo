@@ -11,7 +11,7 @@ setup(
     license="GPLv3",
     description=("A small tool to easily send data (files, clipboard) between computers with 0 "
                  "config, just using audio and mic."),
-    long_description=open("README.md").read(),
+    long_description=open("README.rst").read(),
     keywords=["audio", "modem", "clipboard", "transfer"],
     packages=find_packages(exclude=["tests"]),
     url="https://github.com/fisadev/grillo",

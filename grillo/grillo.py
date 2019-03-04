@@ -24,7 +24,7 @@ class Grillo:
     HEADER_SEPARATOR = b"|"
     FILE_NAME_SEPARATOR = b"<NAME>"
 
-    def __init__(self, with_confirmation=False):
+    def __init__(self, with_confirmation=True):
         self.modem = Modem(with_confirmation)
         self.listening = False
         self.with_confirmation = with_confirmation
@@ -146,17 +146,19 @@ class GrilloCli(object):
     """
     Cli tool to use Grillo from the command line.
 
-    with_confirmation: bool
-        Wait/Send ack message to retry missing packets if needed
+    brave: bool
+        The default mode waits/sends ack messages to retry missing packets if needed.
+        "Brave" mode disables those acks, assuming all the message arrive perfectly all the time.
+        If you use brave and a packet is lost, the whole message won't be received.
     """
-    def __init__(self, with_confirmation=False):
-        self.with_confirmation = with_confirmation
+    def __init__(self, brave=False):
+        self._with_confirmation = not brave
 
     def text(self, text):
         """
         Send a text.
         """
-        grillo = Grillo(self.with_confirmation)
+        grillo = Grillo(self._with_confirmation)
         try:
             grillo.send_text(text)
         except MessageTooLongException:
@@ -172,7 +174,7 @@ class GrilloCli(object):
         """
         Send the contents of the clipboard.
         """
-        grillo = Grillo(self.with_confirmation)
+        grillo = Grillo(self._with_confirmation)
         try:
             grillo.send_clipboard()
         except MessageTooLongException:
@@ -182,7 +184,7 @@ class GrilloCli(object):
         """
         Send a file.
         """
-        grillo = Grillo(self.with_confirmation)
+        grillo = Grillo(self._with_confirmation)
         try:
             grillo.send_file(file_path)
         except MessageTooLongException:
@@ -192,7 +194,7 @@ class GrilloCli(object):
         """
         Receive whatever data is being sent from the source computer.
         """
-        grillo = Grillo(self.with_confirmation)
+        grillo = Grillo(self._with_confirmation)
         try:
             grillo.listen(forever)
         except KeyboardInterrupt:

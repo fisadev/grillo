@@ -73,4 +73,4 @@ Brave vs normal mode
 
 In the default mode, Grillo will use an ACK message to request any packets of a message that haven't been successfully received. 
 This helps working in noisy environments. If you are super confident in your quiet environment, or your receiver can't emit 
-sounds, you can use `--brave` to disable that feature.
+sounds, you can use ``--brave`` to disable that feature.

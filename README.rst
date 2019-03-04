@@ -12,7 +12,7 @@ On Ubuntu, install it by running:
 .. code::
 
     sudo apt install portaudio19-dev libffi-dev libsndfile1 xclip
-    pip install grillomodem
+    pip3 install grillomodem --user
 
 
 Usage

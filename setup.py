@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="GrilloModem",
-    version='1.2.1',
+    version='1.2.2',
     author="Juan Pedro Fisanotti",
     author_email="fisadev@gmail.com",
     license="GPLv3",

@@ -25,8 +25,6 @@ class Grillo:
 
     def __init__(self, with_confirmation=True):
         self.modem = Modem(with_confirmation)
-        self.listening = False
-        self.with_confirmation = with_confirmation
 
     def send_text(self, text):
         """

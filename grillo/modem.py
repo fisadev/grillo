@@ -168,22 +168,24 @@ class Modem:
             time.sleep(0.1)
 
             if self.chained_total_parts is not None:
-                # finished receiving all the parts?
                 if last_expected_part is None:
                     last_expected_part = self.chained_total_parts - 1
 
-                missing_parts = self.chained_missing_parts()
-                if missing_parts:
-                    if last_expected_part in self.chained_parts or self._timeout_expired():
-                        # we received the last part, and we missed other
+                if last_expected_part in self.chained_parts or self._timeout_expired():
+                    # finished receiving all the parts or should have finished and we didn't
+                    missing_parts = self.chained_missing_parts()
+
+                    if missing_parts:
+                        # we didn't get all the parts, ask for the missing ones
                         parts_to_resend = missing_parts[:self.DATA_LEN]
                         last_expected_part = parts_to_resend[-1]
-                        self._reset_timeout()
                         self.send_ack(parts_to_resend)
-                else:
-                    chained_message = self.chained_combine()
-                    self.send_ack()
-                    break
+                        self._reset_timeout()
+                    else:
+                        # stop the chained building loop, we got all the parts
+                        chained_message = self.chained_combine()
+                        self.send_ack()
+                        break
 
             if timeout and self._timeout_expired():
                 break

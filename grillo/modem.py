@@ -23,6 +23,14 @@ class MessageAckIsBroken(Exception):
     pass
 
 
+class NoCallbacks(CallbackSet):
+    """
+    There's no way of removing callbacks in chirp, you can only replace the callback set with a
+    new one. So we need this "empty" callback set.
+    """
+    pass
+
+
 class SinglePacketReceiver(CallbackSet):
     """
     A thing that can receive a single chirp packet, and stores it as an instance variable. It can
@@ -253,4 +261,4 @@ class Modem:
         """
         Stop using chirp to listen for packets.
         """
-        self.chirp.set_callbacks(None)
+        self.chirp.set_callbacks(NoCallbacks())
